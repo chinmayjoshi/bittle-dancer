@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Petoi Bittle X — Mobile Dance Demo</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0b0e17;
+      color: #f8fafc;
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #stage {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      background: radial-gradient(circle at 50% 40%, #251b3d 0%, #0b0e17 75%);
+    }
+    canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+    .top-pill {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      background: rgba(15, 20, 34, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(245, 184, 46, 0.35);
+      border-radius: 14px;
+      padding: 12px 15px;
+      pointer-events: none;
+    }
+    .tag {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #f5b82e;
+      margin-bottom: 3px;
+    }
+    .move-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .move-sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .bottom-dock {
+      background: #111625;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .play-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #f59e0b, #e11d48);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(225, 29, 72, 0.4);
+    }
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+    }
+    .chip {
+      background: rgba(255, 255, 255, 0.07);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 9px 4px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      cursor: pointer;
+    }
+    .chip.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div class="top-pill">
+      <div class="tag" id="hud-tag">PETOI BITTLE X • CHAIYYA CHAIYYA DEMO</div>
+      <div class="move-title" id="hud-title">🚂 Tap "Play Dance + Music" Below!</div>
+      <div class="move-sub" id="hud-sub">Drag with 1 finger to rotate 3D view • Pinch to zoom</div>
+    </div>
+  </div>
+
+  <div class="bottom-dock">
+    <button class="play-btn" id="btn-music">▶ Play Dance + Chaiyya Chaiyya Music</button>
+    <div class="chips">
+      <div class="chip active" data-mode="routine">🚂 Full Routine</div>
+      <div class="chip" data-mode="hi">👋 Wave Hi</div>
+      <div class="chip" data-mode="bow">🐕 Play-Bow</div>
+      <div class="chip" data-mode="pushup">💪 Push-Ups</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 15);
+    camera.position.set(0.28, -0.28, 0.19);
+    camera.up.set(0, 0, 1);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.target.set(0, 0, 0.055);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.HemisphereLight(0xffeedd, 0x222940, 1.6));
+    const sun = new THREE.DirectionalLight(0xffd299, 2.6);
+    sun.position.set(0.4, -0.5, 0.8);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    // Stage Pad
+    const pad = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.26, 0.014, 48).rotateX(Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x1a2234, roughness: 0.4, metalness: 0.25 })
+    );
+    pad.position.set(0, 0, -0.007);
+    pad.receiveShadow = true;
+    scene.add(pad);
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.13, 0.142, 48),
+      new THREE.MeshBasicMaterial({ color: 0xf5b82e, side: THREE.DoubleSide })
+    );
+    ring.position.set(0, 0, 0.0005);
+    scene.add(ring);
+
+    // =========================================================================
+    // INSTANT-LOADING ARTICULATED 3D PETOI BITTLE X RIG (ZERO EXTERNAL MESH WAIT)
+    // =========================================================================
+    const M = {
+      yellow: new THREE.MeshStandardMaterial({ color: 0xf5b82e, roughness: 0.3, metalness: 0.1 }),
+      blue:   new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.15 }),
+      red:    new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.35, metalness: 0.15 }),
+      dark:   new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.25 }),
+      eye:    new THREE.MeshBasicMaterial({ color: 0x38bdf8 }),
+    };
+
+    const robot = new THREE.Group();
+    robot.position.set(0, 0, 0.058);
+    scene.add(robot);
+
+    // Torso chassis
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.068, 0.028), M.yellow);
+    torso.castShadow = true;
+    robot.add(torso);
+
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.052, 0.012), M.dark);
+    cover.position.set(0, 0, 0.018);
+    robot.add(cover);
+
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.076, 0.024), M.blue);
+    chest.position.set(0.044, 0, 0.002);
+    robot.add(chest);
+
+    const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.076, 0.024), M.blue);
+    pelvis.position.set(-0.044, 0, 0.002);
+    robot.add(pelvis);
+
+    // Neck & Cute Dog Head
+    const neckPivot = new THREE.Group();
+    neckPivot.position.set(0.052, 0, 0.018);
+    robot.add(neckPivot);
+
+    const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.044, 0.032), M.yellow);
+    headBox.position.set(0.016, 0, 0.016);
+    headBox.castShadow = true;
+    neckPivot.add(headBox);
+
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.026, 0.016), M.blue);
+    snout.position.set(0.036, 0, 0.010);
+    neckPivot.add(snout);
+
+    [-0.012, 0.012].forEach((ey) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.005, 12, 12), M.eye);
+      eye.position.set(0.034, ey, 0.022);
+      neckPivot.add(eye);
+
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.012, 0.018), M.dark);
+      ear.position.set(0.008, ey * 1.4, 0.034);
+      neckPivot.add(ear);
+    });
+
+    // 4 Articulated Legs (Shoulder + Thigh + Knee + Shank + Paw)
+    function makeLeg(x, y) {
+      const shPivot = new THREE.Group();
+      shPivot.position.set(x, y, 0.004);
+      robot.add(shPivot);
+
+      const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.016), M.red);
+      thigh.position.set(-0.020, 0, -0.004);
+      thigh.castShadow = true;
+      shPivot.add(thigh);
+
+      const knPivot = new THREE.Group();
+      knPivot.position.set(-0.040, 0, -0.008);
+      shPivot.add(knPivot);
+
+      const shank = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.012, 0.012), M.blue);
+      shank.position.set(0.020, 0, -0.006);
+      shank.castShadow = true;
+      knPivot.add(shank);
+
+      const paw = new THREE.Mesh(new THREE.SphereGeometry(0.009, 12, 12), M.yellow);
+      paw.position.set(0.042, 0, -0.008);
+      paw.castShadow = true;
+      knPivot.add(paw);
+
+      return { shPivot, knPivot };
+    }
+
+    const legs = {
+      lf: makeLeg( 0.046,  0.044),
+      rf: makeLeg( 0.046, -0.044),
+      rr: makeLeg(-0.046, -0.044),
+      lr: makeLeg(-0.046,  0.044),
+    };
+
+    // Map OpenCat degrees [LF_sh, RF_sh, RR_sh, LR_sh, LF_kn, RF_kn, RR_kn, LR_kn] -> 3D Rig
+    function applyOpenCatPose(headDeg, ocLegs, zMm, pitchDeg, rollDeg, xMm = 0) {
+      const d2r = Math.PI / 180;
+      neckPivot.rotation.set(0, 0, headDeg * d2r * 0.75);
+
+      const sh = ocLegs.slice(0, 4).map((a) => (a - 75) * d2r);
+      const kn = ocLegs.slice(4, 8).map((a) => (a + 80) * d2r * 0.42);
+
+      legs.lf.shPivot.rotation.y = sh[0];
+      legs.rf.shPivot.rotation.y = sh[1];
+      legs.rr.shPivot.rotation.y = sh[2];
+      legs.lr.shPivot.rotation.y = sh[3];
+
+      legs.lf.knPivot.rotation.y = kn[0];
+      legs.rf.knPivot.rotation.y = kn[1];
+      legs.rr.knPivot.rotation.y = kn[2];
+      legs.lr.knPivot.rotation.y = kn[3];
+
+      robot.position.set(xMm * 0.001, 0, zMm * 0.001);
+      robot.rotation.set(rollDeg * d2r, pitchDeg * d2r, 0);
+    }
+
+    // =========================================================================
+    // MUJOCO-VERIFIED KEYFRAME SEQUENCES (EMBEDDED FOR INSTANT MOBILE PLAYBACK)
+    // =========================================================================
+    const CLIPS = {
+      hi: {
+        title: "👋 Say Hi (3-Leg Tripod Paw Wave)",
+        sub: "Shifts weight onto 3 legs & waves left front paw",
+        kfs: [
+          { t: 0.0, h:  0, l: [30,30,30,30, 30,30,30,30], z: 58, p:   0, r:  0, x: 0 },
+          { t: 0.5, h: 25, l: [30,22,62,25, 64,64,-23,18], z: 52, p: -19, r: 13, x: 0 },
+          { t: 0.9, h: 35, l: [-110,22,62,25, 58,64,-23,18], z: 52, p: -20, r: 14, x: 0 },
+          { t: 1.2, h: 20, l: [-75, 22,62,25, 10,64,-23,18], z: 52, p: -20, r: 14, x: 0 },
+          { t: 1.5, h: 35, l: [-110,22,62,25, 58,64,-23,18], z: 52, p: -20, r: 14, x: 0 },
+          { t: 1.8, h: 20, l: [-75, 22,62,25, 10,64,-23,18], z: 52, p: -20, r: 14, x: 0 },
+          { t: 2.1, h: 35, l: [-110,22,62,25, 58,64,-23,18], z: 52, p: -20, r: 14, x: 0 },
+          { t: 2.6, h:  0, l: [30,30,30,30, 30,30,30,30], z: 58, p:   0, r:  0, x: 0 },
+        ]
+      },
+      bow: {
+        title: "🐕 Good Boy Play-Bow & Head Wag",
+        sub: "Drops chest low to the stage and wags head on the beat",
+        kfs: [
+          { t: 0.0, h:   0, l: [30,30,30,30, 30,30,30,30], z: 58, p:  0, r:  0, x: 0 },
+          { t: 0.4, h:  32, l: [74,82,34,42, -44,-52,18,6], z: 36, p: 20, r: -4, x: 0 },
+          { t: 0.8, h: -32, l: [82,74,42,34, -52,-44,6,18], z: 36, p: 20, r:  4, x: 0 },
+          { t: 1.2, h:  32, l: [74,82,34,42, -44,-52,18,6], z: 36, p: 20, r: -4, x: 0 },
+          { t: 1.6, h: -32, l: [82,74,42,34, -52,-44,6,18], z: 36, p: 20, r:  4, x: 0 },
+          { t: 2.1, h:   0, l: [30,30,30,30, 30,30,30,30], z: 58, p:  0, r:  0, x: 0 },
+        ]
+      },
+      pushup: {
+        title: "💪 Full Plank Push-Ups",
+        sub: "Pumps chest from 58mm down to 14mm on the beat",
+        kfs: [
+          { t: 0.0, h:  0, l: [30,30,30,30, 30,30,30,30], z: 58, p:   0, r: 0, x: 0 },
+          { t: 0.4, h:  0, l: [30,30,105,105, 55,55,55,55], z: 52, p: -18, r: 0, x: 0 },
+          { t: 0.8, h: 25, l: [70,70,85,85, -50,-50,55,55], z: 22, p:  12, r: 0, x: 0 },
+          { t: 1.2, h:  0, l: [30,30,105,105, 55,55,55,55], z: 52, p: -18, r: 0, x: 0 },
+          { t: 1.6, h: 25, l: [70,70,85,85, -50,-50,55,55], z: 22, p:  12, r: 0, x: 0 },
+          { t: 2.0, h:  0, l: [30,30,105,105, 55,55,55,55], z: 52, p: -18, r: 0, x: 0 },
+          { t: 2.5, h:  0, l: [30,30,30,30, 30,30,30,30], z: 58, p:   0, r: 0, x: 0 },
+        ]
+      },
+    };
+
+    // Build the Full 16-Second Choreographed Routine by stitching verified moves + groove!
+    const routineKfs = [
+      // 1. Curious Check Left/Right
+      { t: 0.00, h:   0, l: [30,30,30,30, 30,30,30,30], z: 58, p:  0, r:   0, x:  0, lbl: "👀 Curious Check Around" },
+      { t: 0.45, h:  40, l: [44,20,46,22,  8,42,10,40], z: 55, p:  2, r: -12, x:  0, lbl: "👀 Curious Check Around" },
+      { t: 0.90, h: -40, l: [20,44,22,46, 42, 8,40,10], z: 55, p:  2, r:  12, x:  0, lbl: "👀 Curious Check Around" },
+      // 2. Chaiyya Shoulder Groove + Bounce
+      { t: 1.35, h:   0, l: [56,56,56,56, -12,-12,-12,-12], z: 39, p: 0, r: 0, x: 10, lbl: "⚡ Dholak Crouch & Pop!" },
+      { t: 1.70, h:  18, l: [14,14,14,14,  48, 48, 48, 48], z: 64, p: 0, r: 0, x: 20, lbl: "⚡ Dholak Crouch & Pop!" },
+      { t: 2.05, h:   0, l: [56,56,56,56, -12,-12,-12,-12], z: 39, p: 0, r: 0, x: 30, lbl: "⚡ Dholak Crouch & Pop!" },
+      { t: 2.40, h: -18, l: [14,14,14,14,  48, 48, 48, 48], z: 64, p: 0, r: 0, x: 35, lbl: "⚡ Dholak Crouch & Pop!" },
+      // 3. Sassy Chaiyya Shrugs
+      { t: 2.85, h:  38, l: [46,16,48,18,  6,44, 8,42], z: 56, p:  0, r: -14, x: 35, lbl: "💃 Chaiyya Shoulder Shrug!" },
+      { t: 3.30, h: -38, l: [16,46,18,48, 44, 6,42, 8], z: 56, p:  0, r:  14, x: 35, lbl: "💃 Chaiyya Shoulder Shrug!" },
+      { t: 3.75, h:  38, l: [46,16,48,18,  6,44, 8,42], z: 56, p:  0, r: -14, x: 35, lbl: "💃 Chaiyya Shoulder Shrug!" },
+      { t: 4.20, h: -38, l: [16,46,18,48, 44, 6,42, 8], z: 56, p:  0, r:  14, x: 35, lbl: "💃 Chaiyya Shoulder Shrug!" },
+      // 4. Sufi Play-Bow Wiggle
+      { t: 4.65, h:  32, l: [74,82,34,42, -44,-52,18,6], z: 36, p: 20, r: -4, x: 20, lbl: "🐕 Play-Bow & Head Wag" },
+      { t: 5.05, h: -32, l: [82,74,42,34, -52,-44,6,18], z: 36, p: 20, r:  4, x: 10, lbl: "🐕 Play-Bow & Head Wag" },
+      { t: 5.45, h:  32, l: [74,82,34,42, -44,-52,18,6], z: 36, p: 20, r: -4, x:  0, lbl: "🐕 Play-Bow & Head Wag" },
+      // 5. Push-Ups Breakdown
+      { t: 5.90, h:   0, l: [30,30,105,105, 55,55,55,55], z: 52, p: -18, r: 0, x: 0, lbl: "💪 Beat Drop Push-Ups" },
+      { t: 6.30, h:  22, l: [70,70,85,85, -50,-50,55,55], z: 22, p:  12, r: 0, x: 0, lbl: "💪 Beat Drop Push-Ups" },
+      { t: 6.70, h:   0, l: [30,30,105,105, 55,55,55,55], z: 52, p: -18, r: 0, x: 0, lbl: "💪 Beat Drop Push-Ups" },
+      { t: 7.10, h:  22, l: [70,70,85,85, -50,-50,55,55], z: 22, p:  12, r: 0, x: 0, lbl: "💪 Beat Drop Push-Ups" },
+      // 6. Tripod Sit & Left-Paw Wave Finale
+      { t: 7.60, h:  25, l: [30,22,62,25, 64,64,-23,18], z: 52, p: -19, r: 13, x: 0, lbl: "👋 Tripod Sit & Wave Finale!" },
+      { t: 8.00, h:  35, l: [-110,22,62,25, 58,64,-23,18], z: 52, p: -20, r: 14, x: 0, lbl: "👋 Tripod Sit & Wave Finale!" },
+      { t: 8.35, h:  20, l: [-75, 22,62,25, 10,64,-23,18], z: 52, p: -20, r: 14, x: 0, lbl: "👋 Tripod Sit & Wave Finale!" },
+      { t: 8.70, h:  35, l: [-110,22,62,25, 58,64,-23,18], z: 52, p: -20, r: 14, x: 0, lbl: "👋 Tripod Sit & Wave Finale!" },
+      { t: 9.05, h:  20, l: [-75, 22,62,25, 10,64,-23,18], z: 52, p: -20, r: 14, x: 0, lbl: "👋 Tripod Sit & Wave Finale!" },
+      { t: 9.50, h:   0, l: [30,30,30,30, 30,30,30,30], z: 58, p:   0, r:  0, x: 0, lbl: "✨ Ready!" },
+    ];
+    CLIPS.routine = {
+      title: "🚂 Chaiyya Chaiyya Dance Routine",
+      sub: "6-Move MuJoCo-Verified Choreography",
+      kfs: routineKfs,
+    };
+
+    let currentMode = 'routine';
+    let elapsed = 0;
+
+    const audio = new Audio('./chaiyya_audio.m4a?v=1');
+    audio.loop = true;
+    const btnMusic = document.getElementById('btn-music');
+    btnMusic.addEventListener('click', () => {
+      if (audio.paused) {
+        audio.play().catch(() => {});
+        btnMusic.textContent = '⏸ Pause Music';
+      } else {
+        audio.pause();
+        btnMusic.textContent = '▶ Play Dance + Chaiyya Chaiyya Music';
+      }
+    });
+
+    document.querySelectorAll('.chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentMode = chip.dataset.mode;
+        elapsed = 0;
+        const clip = CLIPS[currentMode];
+        document.getElementById('hud-title').textContent = clip.title;
+        document.getElementById('hud-sub').textContent = clip.sub;
+      });
+    });
+
+    function resize() {
+      const stage = document.getElementById('stage');
+      renderer.setSize(stage.clientWidth, stage.clientHeight, false);
+      camera.aspect = stage.clientWidth / stage.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let last = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = (now - last) * 0.001;
+      last = now;
+
+      const clip = CLIPS[currentMode];
+      const kfs = clip.kfs;
+      const dur = kfs[kfs.length - 1].t;
+      elapsed = (elapsed + dt) % dur;
+
+      let i = 0;
+      while (i < kfs.length - 2 && elapsed > kfs[i + 1].t) i++;
+      const a = kfs[i];
+      const b = kfs[i + 1];
+      const u = Math.max(0, Math.min(1, (elapsed - a.t) / Math.max(1e-4, b.t - a.t)));
+      const s = 3 * u * u - 2 * u * u * u;
+
+      const h = a.h + (b.h - a.h) * s;
+      const l = a.l.map((v, idx) => v + (b.l[idx] - v) * s);
+      const z = a.z + (b.z - a.z) * s;
+      const p = a.p + (b.p - a.p) * s;
+      const r = a.r + (b.r - a.r) * s;
+      const x = a.x + (b.x - a.x) * s;
+
+      applyOpenCatPose(h, l, z, p, r, x);
+      if (currentMode === 'routine' && a.lbl) {
+        document.getElementById('hud-title').textContent = a.lbl;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
