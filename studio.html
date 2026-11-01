@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Petoi Bittle X — 500Hz MuJoCo Verified Moves & Choreographed Sequences</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --bg-dark: #0b0e17;
+      --panel-bg: rgba(16, 21, 34, 0.92);
+      --border: rgba(245, 184, 46, 0.25);
+      --gold: #f5b82e;
+      --red: #e94560;
+      --cyan: #38bdf8;
+      --green: #22c55e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      overflow: hidden;
+      height: 100dvh;
+      width: 100vw;
+      display: grid;
+      grid-template-rows: 60px 1fr 100px;
+      grid-template-columns: 1fr 450px;
+    }
+    header {
+      grid-column: 1 / -1;
+      background: linear-gradient(90deg, #111625 0%, #1c1829 50%, #111625 100%);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      z-index: 10;
+      gap: 10px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .badge {
+      background: linear-gradient(135deg, #16a34a, #059669);
+      color: #fff;
+      font-weight: 800;
+      font-size: 10.5px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .brand h1 {
+      font-size: 15.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .top-controls::-webkit-scrollbar { display: none; }
+    button {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    button:hover {
+      background: rgba(245, 184, 46, 0.18);
+      border-color: var(--gold);
+    }
+    button.primary {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #090d16;
+      border: none;
+      font-weight: 800;
+      padding: 8px 14px;
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+    }
+    button.active {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* 3D Viewport */
+    #viewport-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 35%, #221a35 0%, #0b0e17 75%);
+      overflow: hidden;
+    }
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .hud-top-left {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 460px;
+    }
+    .cue-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--green);
+      padding: 10px 14px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    }
+    .cue-section {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--green);
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+    .cue-lyric {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+    .cue-vibe {
+      font-size: 11.5px;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+    }
+    .cue-pose {
+      font-size: 10.5px;
+      color: var(--cyan);
+      font-family: "SF Mono", Menlo, monospace;
+    }
+
+    .cam-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      width: fit-content;
+      max-width: calc(100% - 24px);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      gap: 6px;
+      background: var(--panel-bg);
+      padding: 5px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .cam-bar::-webkit-scrollbar { display: none; }
+
+    /* Right Sidebar / Mobile Drawer */
+    aside {
+      background: #101522;
+      border-left: 1px solid rgba(255,255,255,0.09);
+      padding: 12px 14px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .cat-header {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--gold);
+      margin: 6px 0 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .seq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .seq-card {
+      background: linear-gradient(135deg, rgba(245, 184, 46, 0.08), rgba(56, 189, 248, 0.06));
+      border: 1px solid rgba(245, 184, 46, 0.3);
+      border-radius: 9px;
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .seq-card:hover {
+      background: rgba(245, 184, 46, 0.18);
+      border-color: var(--gold);
+    }
+    .seq-card.playing {
+      background: rgba(34, 197, 94, 0.18);
+      border-color: var(--green);
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+    }
+    .seq-title {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+      gap: 6px;
+    }
+    .seq-desc {
+      font-size: 10.5px;
+      color: #cbd5e1;
+      line-height: 1.3;
+    }
+
+    .move-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .move-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+    }
+    .move-card:hover {
+      background: rgba(245, 184, 46, 0.14);
+      border-color: var(--gold);
+    }
+    .move-card.playing {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: var(--cyan);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+    }
+    .move-card .m-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+    }
+    .move-card .m-cmd {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 9.5px;
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.14);
+      padding: 1px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .move-card .m-desc {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .card-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .cmd-terminal {
+      background: #070a10;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10.5px;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+
+    /* Footer Timeline & Telemetry */
+    footer {
+      grid-column: 1 / -1;
+      background: #0d111c;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      overflow-x: auto;
+    }
+    .joint-strip {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .j-pill {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 7px;
+      padding: 5px 8px;
+      min-width: 78px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .j-pill .lbl { font-size: 9.5px; color: var(--muted); }
+    .j-pill .val {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    /* =====================================================================
+       MOBILE & TABLET RESPONSIVE LAYOUT
+       ===================================================================== */
+    @media (max-width: 900px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 44dvh 1fr auto;
+      }
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 8px 12px;
+        gap: 6px;
+      }
+      .brand h1 { font-size: 13.5px; }
+      .hud-top-left {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+      }
+      .cue-card {
+        padding: 7px 10px;
+      }
+      .cue-lyric { font-size: 13.5px; margin-bottom: 1px; }
+      .cue-vibe { font-size: 10.5px; margin-bottom: 2px; }
+      .cue-pose { font-size: 9.5px; }
+      .cam-bar {
+        bottom: 8px;
+        left: 8px;
+        padding: 4px;
+      }
+      .cam-bar button {
+        padding: 5px 9px;
+        font-size: 11px;
+      }
+      aside {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        padding: 10px 12px;
+      }
+      footer {
+        padding: 6px 10px;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="badge">✓ 500Hz MuJoCo</span>
+      <h1>Petoi Bittle X — 19 Realistic Moves & 4 Routines</h1>
+    </div>
+    <div class="top-controls">
+      <button id="btn-seq1" class="primary">🐶 Routine 1: Companion (24s)</button>
+      <button id="btn-seq2">🕺 Routine 2: Groove & DJ (28s)</button>
+      <button id="btn-seq3">💪 Routine 3: Fitness (27s)</button>
+      <button id="btn-chaiyya">🚂 Routine 4: Chaiyya Song (34s)</button>
+      <button id="btn-loop" class="active">🔁 Loop: ON</button>
+    </div>
+  </header>
+
+  <div id="viewport-container">
+    <canvas id="three-canvas"></canvas>
+
+    <div class="hud-top-left">
+      <div class="cue-card">
+        <div class="cue-section" id="hud-category">500Hz MUJOCO GRAVITY VERIFIED</div>
+        <div class="cue-lyric" id="hud-title">👋 Say Hi (Left-Paw Wave)</div>
+        <div class="cue-vibe" id="hud-vibe">Shifts onto 3-leg tripod (RF+RR+LR) and waves left front paw 3 times</div>
+        <div class="cue-pose" id="hud-token">MuJoCo Audit: PASS | Max Roll: 15.9° | Max Pitch: 25.7°</div>
+      </div>
+    </div>
+
+    <div class="cam-bar">
+      <button class="cam-btn active" data-cam="hero">🎬 3/4 Cam</button>
+      <button class="cam-btn" data-cam="front">🐶 Front Cam</button>
+      <button class="cam-btn" data-cam="side">📐 Side Cam</button>
+      <button class="cam-btn" data-cam="top">🛸 Top Cam</button>
+    </div>
+  </div>
+
+  <aside>
+    <div id="moves-container">Loading 19 MuJoCo-verified moves & 4 long sequences...</div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>Live BiBoard (ESP32) Serial Command</span>
+        <span id="sim-frame-info" style="color:var(--gold)">0.00s</span>
+      </div>
+      <div class="cmd-terminal" id="opencat-cmd">khi → i 0 34 8 -110 9 22 10 62 11 25 12 58 13 64 14 -23 15 18</div>
+    </div>
+  </aside>
+
+  <footer>
+    <div style="display:flex; gap:5px; flex-shrink:0;">
+      <button class="spd-btn" data-rate="0.5">0.5×</button>
+      <button class="spd-btn active" data-rate="1.0">1.0×</button>
+      <button class="spd-btn" data-rate="1.35">1.35×</button>
+    </div>
+
+    <div class="joint-strip" id="joint-strip"></div>
+  </footer>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+    // =========================================================================
+    // 1. BOTTOM JOINT TELEMETRY STRIP
+    // =========================================================================
+    const JOINT_NAMES = [
+      'J0 Head', 'J8 LF Shldr', 'J9 RF Shldr', 'J10 RR Shldr', 'J11 LR Shldr',
+      'J12 LF Knee', 'J13 RF Knee', 'J14 RR Knee', 'J15 LR Knee'
+    ];
+    const stripEl = document.getElementById('joint-strip');
+    JOINT_NAMES.forEach((name, idx) => {
+      const d = document.createElement('div');
+      d.className = 'j-pill';
+      d.innerHTML = `<div class="lbl">${name}</div><div class="val" id="jp-${idx}">0°</div>`;
+      stripEl.appendChild(d);
+    });
+
+    function formatSerialCmd(headDeg, legsDeg) {
+      const parts = [`0 ${Math.round(headDeg)}`];
+      for (let i = 0; i < legsDeg.length; i++) {
+        parts.push(`${i + 8} ${Math.round(legsDeg[i])}`);
+      }
+      return 'i ' + parts.join(' ');
+    }
+
+    // =========================================================================
+    // 2. THREE.JS SCENE & DESK STAGE
+    // =========================================================================
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x121020, 0.9);
+
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 20);
+    camera.position.set(0.26, -0.26, 0.17);
+    camera.up.set(0, 0, 1);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.target.set(0, 0, 0.06);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    const hemiLight = new THREE.HemisphereLight(0xffeedd, 0x222940, 1.45);
+    hemiLight.position.set(0, 0, 2);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffc988, 2.5);
+    sunLight.position.set(0.5, -0.6, 0.9);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.set(1024, 1024);
+    scene.add(sunLight);
+
+    const rimLight = new THREE.SpotLight(0x38bdf8, 1.8, 3.0, Math.PI / 3, 0.5);
+    rimLight.position.set(-0.5, 0.6, 0.45);
+    scene.add(rimLight);
+
+    // Desk Stage Platform
+    const stageGroup = new THREE.Group();
+    scene.add(stageGroup);
+
+    const padGeo = new THREE.CylinderGeometry(0.32, 0.34, 0.016, 64);
+    padGeo.rotateX(Math.PI / 2);
+    const padMat = new THREE.MeshStandardMaterial({ color: 0x1a2234, roughness: 0.4, metalness: 0.25 });
+    const padMesh = new THREE.Mesh(padGeo, padMat);
+    padMesh.position.set(0, 0, -0.018);
+    padMesh.receiveShadow = true;
+    stageGroup.add(padMesh);
+
+    const ringGeo = new THREE.RingGeometry(0.15, 0.162, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xf5b82e, side: THREE.DoubleSide });
+    const stageRing = new THREE.Mesh(ringGeo, ringMat);
+    stageRing.position.set(0, 0, -0.0095);
+    stageGroup.add(stageRing);
+
+    const gridHelper = new THREE.GridHelper(0.8, 16, 0x38bdf8, 0x1e293b);
+    gridHelper.rotation.x = Math.PI / 2;
+    gridHelper.position.set(0, 0, -0.0098);
+    stageGroup.add(gridHelper);
+
+    // =========================================================================
+    // 3. LOAD ALL 40 OFFICIAL PETOI BITTLE X CAD (.OBJ) MESHES
+    // =========================================================================
+    const MATS = {
+      yellow: new THREE.MeshStandardMaterial({ color: 0xf2b318, roughness: 0.32, metalness: 0.1 }),
+      blue:   new THREE.MeshStandardMaterial({ color: 0x2548b8, roughness: 0.35, metalness: 0.15 }),
+      red:    new THREE.MeshStandardMaterial({ color: 0xd91c24, roughness: 0.35, metalness: 0.15 }),
+      black:  new THREE.MeshStandardMaterial({ color: 0x181b22, roughness: 0.45, metalness: 0.25 }),
+      dark:   new THREE.MeshStandardMaterial({ color: 0x12141a, roughness: 0.5, metalness: 0.2 }),
+    };
+
+    const bittleRoot = new THREE.Group();
+    bittleRoot.position.set(0, 0, 0.056);
+    scene.add(bittleRoot);
+
+    const torsoGroup = new THREE.Group();
+    bittleRoot.add(torsoGroup);
+
+    function makePivot(parent, x, y, z) {
+      const g = new THREE.Group();
+      g.position.set(x, y, z);
+      parent.add(g);
+      return g;
+    }
+
+    const pivots = {
+      neck:  makePivot(torsoGroup,  0.047554,  0.0,      0.035941),
+      rf_sh: makePivot(torsoGroup,  0.0525,   -0.0485,   0.022),
+      rr_sh: makePivot(torsoGroup, -0.0525,   -0.0485,   0.022),
+      lf_sh: makePivot(torsoGroup,  0.0525,    0.0485,   0.022),
+      lr_sh: makePivot(torsoGroup, -0.0525,    0.0485,   0.022),
+    };
+    pivots.rf_kn = makePivot(pivots.rf_sh, -0.044433,  0.00142, -0.011906);
+    pivots.rr_kn = makePivot(pivots.rr_sh, -0.044433,  0.00142, -0.011906);
+    pivots.lf_kn = makePivot(pivots.lf_sh, -0.044433, -0.00142, -0.011906);
+    pivots.lr_kn = makePivot(pivots.lr_sh, -0.044433, -0.00142, -0.011906);
+
+    const MESH_MANIFEST = [
+      { file: 'base_link.obj',    parent: torsoGroup, mat: MATS.yellow, off: [0, 0, 0] },
+      { file: 'front__1.obj',     parent: torsoGroup, mat: MATS.blue,   off: [0, 0, 0] },
+      { file: 'rear__1.obj',      parent: torsoGroup, mat: MATS.blue,   off: [0, 0, 0] },
+      { file: 'cover_1.obj',      parent: torsoGroup, mat: MATS.dark,   off: [0, 0, 0] },
+      { file: 'battery_1.obj',    parent: torsoGroup, mat: MATS.dark,   off: [0, 0, 0] },
+      { file: 'c_neck__1.obj',    parent: torsoGroup, mat: MATS.blue,   off: [0, 0, 0] },
+      { file: 'servo_rfs_1.obj',  parent: torsoGroup, mat: MATS.black,  off: [0, 0, 0] },
+      { file: 'servo_rrs__1.obj', parent: torsoGroup, mat: MATS.black,  off: [0, 0, 0] },
+      { file: 'servo_lfs_1.obj',  parent: torsoGroup, mat: MATS.black,  off: [0, 0, 0] },
+      { file: 'servo_lrs__1.obj', parent: torsoGroup, mat: MATS.black,  off: [0, 0, 0] },
+
+      { file: 'servo_neck__1.obj', parent: pivots.neck, mat: MATS.black,  off: [-0.047554, 0, -0.035941] },
+      { file: 'jaw_1.obj',         parent: pivots.neck, mat: MATS.blue,   off: [-0.047554, 0, -0.035941] },
+      { file: 'head__1.obj',       parent: pivots.neck, mat: MATS.yellow, off: [-0.047554, 0, -0.035941] },
+
+      { file: 'c_thrf__1.obj',   parent: pivots.rf_sh, mat: MATS.red,   off: [-0.0525, 0.0485, -0.022] },
+      { file: 'th_rf_1.obj',     parent: pivots.rf_sh, mat: MATS.red,   off: [-0.0525, 0.0485, -0.022] },
+      { file: 'tho_rf__1.obj',   parent: pivots.rf_sh, mat: MATS.red,   off: [-0.0525, 0.0485, -0.022] },
+      { file: 'c_thorf_1.obj',   parent: pivots.rf_sh, mat: MATS.red,   off: [-0.0525, 0.0485, -0.022] },
+      { file: 'tube__1.obj',     parent: pivots.rf_sh, mat: MATS.red,   off: [-0.0525, 0.0485, -0.022] },
+      { file: 'servos_rf_1.obj', parent: pivots.rf_kn, mat: MATS.black, off: [-0.008067, 0.04708, -0.010094] },
+      { file: 'shank_rf_1.obj',  parent: pivots.rf_kn, mat: MATS.blue,  off: [-0.008067, 0.04708, -0.010094] },
+
+      { file: 'c_thrr_1.obj',    parent: pivots.rr_sh, mat: MATS.red,   off: [0.0525, 0.0485, -0.022] },
+      { file: 'th_rr_1.obj',     parent: pivots.rr_sh, mat: MATS.red,   off: [0.0525, 0.0485, -0.022] },
+      { file: 'tho_rr_1.obj',    parent: pivots.rr_sh, mat: MATS.red,   off: [0.0525, 0.0485, -0.022] },
+      { file: 'c_thorr_1.obj',   parent: pivots.rr_sh, mat: MATS.red,   off: [0.0525, 0.0485, -0.022] },
+      { file: 'tube_rr_1.obj',   parent: pivots.rr_sh, mat: MATS.red,   off: [0.0525, 0.0485, -0.022] },
+      { file: 'servos_rr_1.obj', parent: pivots.rr_kn, mat: MATS.black, off: [0.096933, 0.04708, -0.010094] },
+      { file: 'shank_rr_1.obj',  parent: pivots.rr_kn, mat: MATS.blue,  off: [0.096933, 0.04708, -0.010094] },
+
+      { file: 'c_thlf_1.obj',    parent: pivots.lf_sh, mat: MATS.red,   off: [-0.0525, -0.0485, -0.022] },
+      { file: 'th_lf_1.obj',     parent: pivots.lf_sh, mat: MATS.red,   off: [-0.0525, -0.0485, -0.022] },
+      { file: 'tho_lf_1.obj',    parent: pivots.lf_sh, mat: MATS.red,   off: [-0.0525, -0.0485, -0.022] },
+      { file: 'c_tholf_1.obj',   parent: pivots.lf_sh, mat: MATS.red,   off: [-0.0525, -0.0485, -0.022] },
+      { file: 'tube_lf_1.obj',   parent: pivots.lf_sh, mat: MATS.red,   off: [-0.0525, -0.0485, -0.022] },
+      { file: 'servos_lf_1.obj', parent: pivots.lf_kn, mat: MATS.black, off: [-0.008067, -0.04708, -0.010094] },
+      { file: 'shank_lf_1.obj',  parent: pivots.lf_kn, mat: MATS.blue,  off: [-0.008067, -0.04708, -0.010094] },
+
+      { file: 'c_thlr_1.obj',    parent: pivots.lr_sh, mat: MATS.red,   off: [0.0525, -0.0485, -0.022] },
+      { file: 'th_lr__1.obj',    parent: pivots.lr_sh, mat: MATS.red,   off: [0.0525, -0.0485, -0.022] },
+      { file: 'tho_lr_1.obj',    parent: pivots.lr_sh, mat: MATS.red,   off: [0.0525, -0.0485, -0.022] },
+      { file: 'c_tholr__1.obj',  parent: pivots.lr_sh, mat: MATS.red,   off: [0.0525, -0.0485, -0.022] },
+      { file: 'tube_lr_1.obj',   parent: pivots.lr_sh, mat: MATS.red,   off: [0.0525, -0.0485, -0.022] },
+      { file: 'servos_lr_1.obj', parent: pivots.lr_kn, mat: MATS.black, off: [0.096933, -0.047082, -0.010094] },
+      { file: 'shank_lr_1.obj',  parent: pivots.lr_kn, mat: MATS.blue,  off: [0.096933, -0.047082, -0.010094] },
+    ];
+
+    const objLoader = new OBJLoader();
+    const MESH_BASE_URL = './sim_assets/bittle-mujoco/meshes_obj/';
+    MESH_MANIFEST.forEach((item) => {
+      objLoader.load(MESH_BASE_URL + item.file, (obj) => {
+        obj.traverse((child) => {
+          if (child.isMesh) {
+            child.material = item.mat;
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        obj.scale.set(0.001, 0.001, 0.001);
+        obj.position.set(item.off[0], item.off[1], item.off[2]);
+        item.parent.add(obj);
+      });
+    });
+
+    const NECK_AXIS = new THREE.Vector3(-0.5, 0, -0.866025).normalize();
+
+    function applyPoseToRobot(qpos9, posXYZ, quatWXYZ) {
+      pivots.neck.setRotationFromAxisAngle(NECK_AXIS, qpos9[0]);
+      pivots.rf_sh.rotation.set(0, qpos9[1], 0);
+      pivots.rf_kn.rotation.set(0, qpos9[2], 0);
+      pivots.rr_sh.rotation.set(0, -qpos9[3], 0);
+      pivots.rr_kn.rotation.set(0, qpos9[4], 0);
+      pivots.lf_sh.rotation.set(0, qpos9[5], 0);
+      pivots.lf_kn.rotation.set(0, qpos9[6], 0);
+      pivots.lr_sh.rotation.set(0, -qpos9[7], 0);
+      pivots.lr_kn.rotation.set(0, qpos9[8], 0);
+
+      if (posXYZ) bittleRoot.position.set(posXYZ[0], posXYZ[1], posXYZ[2]);
+      if (quatWXYZ) bittleRoot.quaternion.set(quatWXYZ[1], quatWXYZ[2], quatWXYZ[3], quatWXYZ[0]);
+    }
+
+    // =========================================================================
+    // 4. LOAD 19 VERIFIED MOVES & 4 LONGER SEQUENCES (100% MUJOCO 500Hz)
+    // =========================================================================
+    let movesList = [];
+    let movesMap = {};
+    let sequencesList = [];
+    let activeClip = null;
+    let isSequenceMode = false;
+    let clipElapsed = 0.0;
+    let playbackRate = 1.0;
+    let loopEnabled = true;
+    let inChaiyyaMode = false;
+
+    const movesContainer = document.getElementById('moves-container');
+
+    fetch('./bittle_moves_library.json?v=verified3')
+      .then((r) => r.json())
+      .then((data) => {
+        movesList = data.moves;
+        movesList.forEach((m) => { movesMap[m.key] = m; });
+        sequencesList = data.sequences || [];
+        renderSidebar();
+        selectSequenceById('seq_companion');
+      });
+
+    function renderSidebar() {
+      movesContainer.innerHTML = '';
+
+      // Section A: Longer Choreographed Sequences (24s-34s)
+      const seqHdr = document.createElement('div');
+      seqHdr.className = 'cat-header';
+      seqHdr.innerHTML = `<span>🎬 Longer Choreographed Sequences (500Hz MuJoCo)</span>`;
+      movesContainer.appendChild(seqHdr);
+
+      const seqWrap = document.createElement('div');
+      seqWrap.className = 'seq-list';
+      sequencesList.forEach((seq) => {
+        const sc = document.createElement('div');
+        sc.className = 'seq-card';
+        sc.id = `seq-${seq.id}`;
+        sc.innerHTML = `
+          <div class="seq-title">
+            <span>${seq.name}</span>
+            <span class="m-cmd">PASS (${seq.duration_sec}s)</span>
+          </div>
+          <div class="seq-desc">${seq.description}</div>
+        `;
+        sc.addEventListener('click', () => {
+          stopChaiyyaAudio();
+          selectSequenceById(seq.id);
+        });
+        seqWrap.appendChild(sc);
+      });
+      movesContainer.appendChild(seqWrap);
+
+      // Section B: 19 Verified Individual Moves
+      const categories = [...new Set(movesList.map((m) => m.category))];
+      categories.forEach((cat) => {
+        const hdr = document.createElement('div');
+        hdr.className = 'cat-header';
+        hdr.innerHTML = `<span>${cat}</span>`;
+        movesContainer.appendChild(hdr);
+
+        const grid = document.createElement('div');
+        grid.className = 'move-grid';
+        movesList
+          .filter((m) => m.category === cat)
+          .forEach((move) => {
+            const card = document.createElement('div');
+            card.className = 'move-card';
+            card.id = `card-${move.key}`;
+            card.innerHTML = `
+              <div class="m-title">
+                <span>${move.name}</span>
+                <span class="m-cmd">${move.cmd}</span>
+              </div>
+              <div class="m-desc">${move.vibe}</div>
+            `;
+            card.addEventListener('click', () => {
+              stopChaiyyaAudio();
+              selectMoveByKey(move.key);
+            });
+            grid.appendChild(card);
+          });
+        movesContainer.appendChild(grid);
+      });
+    }
+
+    function selectMoveByKey(key) {
+      const m = movesMap[key];
+      if (!m) return;
+      activeClip = m;
+      isSequenceMode = false;
+      clipElapsed = 0.0;
+
+      document.querySelectorAll('.seq-card, .move-card').forEach((c) => c.classList.remove('playing'));
+      const activeCard = document.getElementById(`card-${m.key}`);
+      if (activeCard) activeCard.classList.add('playing');
+
+      document.getElementById('hud-category').textContent = `${m.category} — 500Hz MUJOCO VERIFIED`;
+      document.getElementById('hud-title').textContent = m.name;
+      document.getElementById('hud-vibe').textContent = m.vibe;
+      document.getElementById('hud-token').textContent =
+        `Token: "${m.cmd}" (${m.duration_sec}s) | Max Roll: ${m.metrics.max_roll_deg}° | Max Pitch: ${m.metrics.max_pitch_deg}°`;
+    }
+
+    function selectSequenceById(seqId) {
+      const seq = sequencesList.find((s) => s.id === seqId);
+      if (!seq) return;
+      activeClip = seq;
+      isSequenceMode = true;
+      clipElapsed = 0.0;
+
+      document.querySelectorAll('.seq-card, .move-card').forEach((c) => c.classList.remove('playing'));
+      const activeSeqCard = document.getElementById(`seq-${seq.id}`);
+      if (activeSeqCard) activeSeqCard.classList.add('playing');
+
+      document.getElementById('hud-category').textContent = `CONTINUOUS 500Hz MUJOCO ROUTINE (${seq.duration_sec}s)`;
+      document.getElementById('hud-title').textContent = seq.name;
+      document.getElementById('hud-vibe').textContent = seq.description;
+    }
+
+    // Header Quick Sequence Buttons
+    document.getElementById('btn-seq1').addEventListener('click', () => {
+      stopChaiyyaAudio();
+      selectSequenceById('seq_companion');
+    });
+    document.getElementById('btn-seq2').addEventListener('click', () => {
+      stopChaiyyaAudio();
+      selectSequenceById('seq_groove');
+    });
+    document.getElementById('btn-seq3').addEventListener('click', () => {
+      stopChaiyyaAudio();
+      selectSequenceById('seq_fitness');
+    });
+
+    const btnLoop = document.getElementById('btn-loop');
+    btnLoop.addEventListener('click', () => {
+      loopEnabled = !loopEnabled;
+      btnLoop.textContent = loopEnabled ? '🔁 Loop: ON' : '1️⃣ Loop: OFF';
+      btnLoop.classList.toggle('active', loopEnabled);
+    });
+
+    // Routine 4: Chaiyya Chaiyya Beat-Synced Routine (Compressed 533KB M4A Audio!)
+    const audio = new Audio('./chaiyya_audio.m4a?v=1');
+    audio.loop = true;
+    let chaiyyaTraj = null;
+    fetch('./mujoco_trajectory.json?v=real2').then((r) => r.json()).then((d) => { chaiyyaTraj = d; }).catch(() => {});
+
+    function stopChaiyyaAudio() {
+      inChaiyyaMode = false;
+      audio.pause();
+      document.getElementById('btn-chaiyya').textContent = '🚂 Routine 4: Chaiyya Song (34s)';
+    }
+
+    document.getElementById('btn-chaiyya').addEventListener('click', () => {
+      if (!inChaiyyaMode) {
+        inChaiyyaMode = true;
+        document.querySelectorAll('.seq-card, .move-card').forEach((c) => c.classList.remove('playing'));
+        audio.currentTime = 0;
+        audio.play();
+        document.getElementById('btn-chaiyya').textContent = '⏹ Stop Chaiyya Song';
+      } else {
+        stopChaiyyaAudio();
+        selectSequenceById('seq_companion');
+      }
+    });
+
+    // Camera Presets
+    document.querySelectorAll('.cam-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cam-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.dataset.cam;
+        if (mode === 'hero')  camera.position.set(0.26, -0.26, 0.17);
+        if (mode === 'front') camera.position.set(0.32,  0.00, 0.11);
+        if (mode === 'side')  camera.position.set(0.00, -0.35, 0.11);
+        if (mode === 'top')   camera.position.set(0.02, -0.02, 0.42);
+        controls.target.set(0, 0, 0.06);
+        controls.update();
+      });
+    });
+
+    // Playback Speed
+    document.querySelectorAll('.spd-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.spd-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        playbackRate = parseFloat(btn.dataset.rate);
+      });
+    });
+
+    // =========================================================================
+    // 5. ANIMATION LOOP (100% REAL 500Hz MUJOCO TRAJECTORIES)
+    // =========================================================================
+    function resizeRenderer() {
+      const container = document.getElementById('viewport-container');
+      renderer.setSize(container.clientWidth, container.clientHeight, false);
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resizeRenderer);
+    resizeRenderer();
+
+    let lastTime = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = (now - lastTime) * 0.001;
+      lastTime = now;
+
+      if (inChaiyyaMode && chaiyyaTraj && !audio.paused) {
+        const t = audio.currentTime % chaiyyaTraj.duration_sec;
+        const idx = Math.min(chaiyyaTraj.frames.length - 1, Math.floor(t * chaiyyaTraj.fps));
+        const f = chaiyyaTraj.frames[idx];
+        applyPoseToRobot(f.qpos_joints, f.pos, f.quat);
+        document.getElementById('hud-category').textContent = `ROUTINE 4: CHAIYYA CHAIYYA (${f.section})`;
+        document.getElementById('hud-title').textContent = f.lyric_cue;
+        document.getElementById('hud-vibe').textContent = f.pose_label;
+        document.getElementById('opencat-cmd').textContent = f.opencat_serial_cmd;
+      } else if (activeClip && activeClip.frames.length > 0) {
+        clipElapsed += dt * playbackRate;
+        if (clipElapsed >= activeClip.duration_sec) {
+          if (loopEnabled) {
+            clipElapsed = clipElapsed % activeClip.duration_sec;
+          } else {
+            clipElapsed = activeClip.duration_sec - 0.001;
+          }
+        }
+
+        const fIdx = Math.min(
+          activeClip.frames.length - 1,
+          Math.max(0, Math.floor(clipElapsed * activeClip.fps))
+        );
+        const f = activeClip.frames[fIdx];
+
+        // Always render 100% real 500Hz MuJoCo physics state!
+        applyPoseToRobot(f.mj_qpos9, f.mj_pos, f.mj_quat);
+
+        let subMove = null;
+        if (isSequenceMode && f.move_key) {
+          subMove = movesMap[f.move_key];
+          document.querySelectorAll('.move-card').forEach((c) => c.classList.remove('playing'));
+          const subCard = document.getElementById(`card-${f.move_key}`);
+          if (subCard) subCard.classList.add('playing');
+          if (subMove) {
+            document.getElementById('hud-token').textContent =
+              `Now Executing: ${subMove.name} (${subMove.cmd}) | Time: ${clipElapsed.toFixed(1)}s / ${activeClip.duration_sec}s`;
+          }
+        }
+
+        const allDeg = [f.head_deg, ...f.legs_deg];
+        allDeg.forEach((v, i) => {
+          const el = document.getElementById(`jp-${i}`);
+          if (el) el.textContent = `${Math.round(v)}°`;
+        });
+        document.getElementById('sim-frame-info').textContent =
+          `${clipElapsed.toFixed(2)}s / ${activeClip.duration_sec}s`;
+        const cmdPrefix = (subMove && subMove.cmd) || activeClip.cmd || 'seq';
+        document.getElementById('opencat-cmd').textContent =
+          `${cmdPrefix}  →  ${formatSerialCmd(f.head_deg, f.legs_deg)}`;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
